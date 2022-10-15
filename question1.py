@@ -2,7 +2,7 @@ from z3 import Bool, Solver, Or, Not, PbEq, PbLe, Sum, Int, If
 from func_timeout import func_timeout, FunctionTimedOut
 
 # question 1
-cannotMixState = False
+cannotMixState = True
 
 # defining the variables to do with trucks
 normalTruckNum = 5
@@ -92,6 +92,21 @@ for t in truckList:
 			solver.add(PbLe([(x,1) for x in valuableType], 1))
 
 
+# define the variables containing the number of pallets that are not pre-defined
+missingInt = [Int(f"type_{i['name']}") for i in palletTypes if i["num"] == "" and i["name"] == palletMaxType][0]
+
+# create an array of all possible slots of the pallet type missing a defined number
+for p in range(0, len(palletTypes)):
+	if palletTypes[p]["num"] == "" and palletTypes[p]["name"] == palletMaxType:
+		missingTypeList = []
+		for t in truckList:
+			for s in t:
+				missingTypeList.append(s[p])
+
+		# defines the integer as the how many pallets there are on the trucks
+		solver.add(Sum(missingTypeList) == missingInt)
+
+
 
 # this condition only occurs if state is true
 if cannotMixState:
@@ -110,21 +125,6 @@ if cannotMixState:
 
 					# for each truck if firt type is there, other type cannot be
 					solver.add(If(Or(firstType), Not(Or(incompatibleType)), Not(Or(firstType))))
-
-
-# define the variables containing the number of pallets that are not pre-defined
-missingInt = [Int(f"type_{i['name']}") for i in palletTypes if i["num"] == "" and i["name"] == palletMaxType][0]
-
-# create an array of all possible slots of the pallet type missing a defined number
-for p in range(0, len(palletTypes)):
-	if palletTypes[p]["num"] == "" and palletTypes[p]["name"] == palletMaxType:
-		missingTypeList = []
-		for t in truckList:
-			for s in t:
-				missingTypeList.append(s[p])
-
-		# defines the integer as the how many pallets there are on the trucks
-		solver.add(Sum(missingTypeList) == missingInt)
 
 # checking if there is a valid model
 # in a function so can time out if unsat
