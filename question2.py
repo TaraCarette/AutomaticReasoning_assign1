@@ -1,10 +1,7 @@
-from z3 import Int, Solver, Or, And, Implies
-# chip is 30 by 30
-# power 4 by 3
-# center of power 16 away in at least one x or y
-# other components must be touching power
-# components may be turned 90 but cannot overlap
+from z3 import Real, Solver, Or, And, Implies, ToInt
+import tkinter as Tk
 
+# defining the parameters
 chip = (30, 30)
 
 powerSize = (4, 3)
@@ -25,15 +22,17 @@ c10 = (10, 20)
 componentList = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10]
 
 # create values associated with each component
-cLocations = [ [Int(f"comp{c}_topx"), Int(f"comp{c}_topy"), Int(f"comp{c}_bottomx"), Int(f"comp{c}_bottomy")] for c in range(0, len(componentList))]
+# created with idea the top point is the top left, and the bottom point is the top right
+# the origin point of the chip is the bottom left
+cLocations = [ [Real(f"comp{c}_topx"), Real(f"comp{c}_topy"), Real(f"comp{c}_bottomx"), Real(f"comp{c}_bottomy")] for c in range(0, len(componentList))]
 
 # add the power components onto the list
 for i in range(powerNum):
 	componentList.append(powerSize)
-powerLocations = [ [Int(f"power{p}_topx"), Int(f"power{p}_topy"), Int(f"power{p}_bottomx"), Int(f"power{p}_bottomy")] for p in range(powerNum)]
+powerLocations = [ [Real(f"power{p}_topx"), Real(f"power{p}_topy"), Real(f"power{p}_bottomx"), Real(f"power{p}_bottomy")] for p in range(powerNum)]
 # create a list with all types of components
 componentLocations = cLocations + powerLocations
-
+	
 solver = Solver()
 
 
@@ -51,22 +50,22 @@ for c in range(0, len(componentList)):
 	solver.add(componentLocations[c][2] <= chip[0])
 	solver.add(componentLocations[c][3] >= 0)
 
-	# # specifying the non-power components
-	# # must be touch a power component
-	# if c < len(cLocations):
-	# 	pOptions = []
-	# 	for i in range(0, powerNum):
-	# 		pMatch = componentLocations[len(cLocations) + i]
+	# specifying the non-power components
+	# must be touch a power component
+	if c < len(cLocations):
+		pOptions = []
+		for i in range(0, powerNum):
+			pMatch = componentLocations[len(cLocations) + i]
 
-	# 		# creating the option to be touching this specific power component
-	# 		pOptions.append(Or(And(componentLocations[c][3] == pMatch[1], componentLocations[c][2] > pMatch[0], componentLocations[c][0] < pMatch[2]),
-	# 			And(componentLocations[c][1] == pMatch[3], componentLocations[c][2] > pMatch[0], componentLocations[c][0] < pMatch[2]),
-	# 			And(componentLocations[c][0] == pMatch[2], componentLocations[c][1] > pMatch[3], componentLocations[c][3] < pMatch[1]),
-	# 			And(componentLocations[c][2] == pMatch[2], componentLocations[c][1] > pMatch[3], componentLocations[c][3] < pMatch[1])))
+			# creating the option to be touching this specific power component
+			pOptions.append(Or(And(componentLocations[c][3] == pMatch[1], componentLocations[c][2] > pMatch[0], componentLocations[c][0] < pMatch[2]),
+				And(componentLocations[c][1] == pMatch[3], componentLocations[c][2] > pMatch[0], componentLocations[c][0] < pMatch[2]),
+				And(componentLocations[c][0] == pMatch[2], componentLocations[c][1] > pMatch[3], componentLocations[c][3] < pMatch[1]),
+				And(componentLocations[c][2] == pMatch[0], componentLocations[c][1] > pMatch[3], componentLocations[c][3] < pMatch[1])))
 
 
-	# 	# enure at least one of the power components is being touched
-	# 	solver.add(Or(pOptions))
+		# enure at least one of the power components is being touched
+		solver.add(Or(pOptions))
 
 
 	# power must be at least 16 away in one direction
@@ -90,20 +89,20 @@ for c in range(0, len(componentList)):
 			Or(componentLocations[c][1] <= otherComponent[3], componentLocations[c][3] >= otherComponent[1])))
 
 		# if the components shares the y range, it cannot share x range
-		solver.add(Implies(And(componentLocations[c][1] <= otherComponent[1], componentLocations[c][3] >= otherComponent[0]),
+		solver.add(Implies(And(componentLocations[c][1] <= otherComponent[1], componentLocations[c][3] >= otherComponent[3]),
 			Or(componentLocations[c][0] >= otherComponent[2], componentLocations[c][2] <= otherComponent[0])))
 
 
 print(solver.check())
 m = solver.model()
 
+# printing the model values
 for i in range(len(componentLocations)):
 	print(i)
 	for j in componentLocations[i]:
 		print(j + m[j])
 
-import tkinter as Tk
-
+# creating a visual of the chip
 root = Tk.Tk()
 root.geometry('500x500')
 root.config(bg='#345')
@@ -117,16 +116,18 @@ canvas = Tk.Canvas(
     
 canvas.pack()
 
-scale = 15
+scale = 450 / chip[0]
 for i in range(len(componentLocations)):
+	# yellow boxes for normal components
 	if i < len(cLocations):
 		canvas.create_rectangle(
-		    m.evaluate(componentLocations[i][0] * scale), m.evaluate((chip[1] - componentLocations[i][1]) * scale), m.evaluate(componentLocations[i][2] * scale), m.evaluate((chip[1] - componentLocations[i][3]) * scale),
+		    m.evaluate(ToInt(componentLocations[i][0] * scale)), m.evaluate(ToInt((chip[1] - componentLocations[i][1]) * scale)), m.evaluate(ToInt(componentLocations[i][2] * scale)), m.evaluate(ToInt((chip[1] - componentLocations[i][3]) * scale)),
 		    outline="#000",
 		    fill="#fb0")
+	# green boxes for power components
 	else:
 		canvas.create_rectangle(
-	    m.evaluate(componentLocations[i][0] * scale), m.evaluate((chip[1] - componentLocations[i][1]) * scale), m.evaluate(componentLocations[i][2] * scale), m.evaluate((chip[1] - componentLocations[i][3]) * scale),
+	    m.evaluate(ToInt(componentLocations[i][0] * scale)), m.evaluate(ToInt((chip[1] - componentLocations[i][1]) * scale)), m.evaluate(ToInt(componentLocations[i][2] * scale)), m.evaluate(ToInt((chip[1] - componentLocations[i][3]) * scale)),
 	    outline="#000",
 	    fill="#bb0")
 
