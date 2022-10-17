@@ -1,20 +1,5 @@
-from z3 import Solver, Bool, PbLe, Implies, Sum, And, Or
+from z3 import Solver, Bool, PbLe, Implies, Sum, And, Or, Not
 
-# 5 couples in different houses want dinner
-# dinner in 5 rounds
-# 5 people max per house
-# each round will have 2 houses serving dinner at the same time
-# every couple serves 2 rounds in their own house
-# every 2 people meet each other at most 4 times
-
-# a - every 2 people meet each other at least once
-# b - every 2 people meet each otehr at most 3 times
-# c - couples never meet outside of their house
-# d - for every house the 6 guests are distinct (couple stay same, each house hosts 2 rounds)
-
-
-# show a with c or d but not both
-# show b possible with c and d
 
 # parameters
 roundNum = 5
@@ -24,13 +9,13 @@ hostNum = 2
 
 # booleans about which optional rules to implement
 a = False
-b = False
-c = False
-d = False
+b = True
+c = True
+d = True
 
 solver = Solver()
 
-
+# a list per round, a sublist per each house, and within that house, a boolean for each person, true if they are there
 personPlacement = [ [ [Bool(f"r{r}_h{h}_person{p}") for p in range(houseNum * 2)] for h in range(houseNum)] for r in range(roundNum)]
 
 for r in personPlacement:
@@ -62,9 +47,7 @@ for h in range(houseNum):
 
 
 # people meet at most 4 times
-# across all rounds, Sum is less than 4 with 0:1 
-
-# only compare ahead to avoid reduncies
+# only compare ahead to avoid redundacies
 for p1 in range(houseNum * 2):
 	for p2 in range(p1 + 1, houseNum * 2):
 		dinnerTogether = []
@@ -73,6 +56,36 @@ for p1 in range(houseNum * 2):
 				dinnerTogether.append(And([h[p1], h[p2]]))
 
 		solver.add(Sum(dinnerTogether) <= 4)
+
+		# people meet everyone at least once
+		if a:
+			solver.add(Sum(dinnerTogether) >= 1)
+
+		# people meet each other at most 3 times
+		if b:
+			solver.add(Sum(dinnerTogether) <= 3)
+
+# couples never meet outside of their house
+if c:
+	for p in range(0, houseNum * 2, 2):
+		for r in personPlacement:
+			for h in range(len(r)):
+				# if not own house do not allow combination
+				if not((h * 2) == p):
+					solver.add(Not(And([r[h][p], r[h][p + 1]])))
+
+# all of the house guests are distinct
+if d:
+	for h in range(houseNum):
+		houseGuest = [[] for i in range(houseNum * 2 - 2)]
+		for r in personPlacement:
+			count = 0
+			for p in range(len(r[h])):
+				# only look at guests of the house
+				if not((h * 2) == p or (h * 2) + 1 == p):
+					houseGuest[count].append(r[h][p])
+					count += 1
+		solver.add(Sum([Sum(g) == 1 for g in houseGuest]) == 6)
 
 
 
