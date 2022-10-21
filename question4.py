@@ -1,20 +1,6 @@
 from z3 import Solver, Int, Bool, If, And, Implies, Not, Z3Exception
 
-# a = 1, b = 1
-# for i in range(1, 10):
-# 	if ?
-# 		a = a + 2b
-# 		b = b + i
-# 	else:
-# 		b = a + b
-# 		a = a + i
-#
-# 	if b = 700 + n:
-# 		crash
-
-# establish for n 1 to 10 it will not crash
-# show that for nonsafe value of n, crash can be reached
-
+# parameters of the program
 rangeNum = 10
 startA = 1
 startB = 1

@@ -1,4 +1,4 @@
-from z3 import Bool, Solver, Or, Not, PbEq, PbLe, Sum, Int, If
+from z3 import Bool, Solver, Or, Not, Sum, Int, Implies, sat
 from func_timeout import func_timeout, FunctionTimedOut
 
 # question 1
@@ -32,7 +32,7 @@ truckList = [ [ [ Bool(f"{t}_truck{i}_space{j}") for t in ["nuzzles", "prittles"
 # each slot can only contain one type of pallet or be empty
 for t in truckList:
 	for s in t:
-		solver.add(PbEq([(x,1) for x in s], 1))
+		solver.add(Sum(s) == 1)
 
 
 
@@ -47,8 +47,7 @@ for p in range(0, len(palletTypes)):
 
 	# if there is a set number for that pallet, make sure it is followed
 	if not(type(palletTypes[p]["num"]) == str):
-		solver.add(PbEq([(x,1) for x in possibleSlots], palletTypes[p]["num"]))
-		# solver.add(PbEq([(x,1) for x in possibleSlots], 1))
+		solver.add(Sum(possibleSlots) == palletTypes[p]["num"])
 
 
 
@@ -89,7 +88,7 @@ for t in truckList:
 				valuableType.append(s[p])
 
 			# make sure that there is only 1 or less of that type in the truck
-			solver.add(PbLe([(x,1) for x in valuableType], 1))
+			solver.add(Sum(valuableType) <= 1)
 
 
 # define the variables containing the number of pallets that are not pre-defined
@@ -124,39 +123,45 @@ if cannotMixState:
 						incompatibleType.append(s[mixIndex])
 
 					# for each truck if firt type is there, other type cannot be
-					solver.add(If(Or(firstType), Not(Or(incompatibleType)), Not(Or(firstType))))
+					solver.add(Implies(Or(firstType), Not(Or(incompatibleType))))
 
 # checking if there is a valid model
 # in a function so can time out if unsat
 def check():
-	solver.check()
-	return True
+	if solver.check() != sat:
+		return False
+	else:
+		return True
+
 
 # loop through trying to maxmize defined integer until check is unsat
+currentLargest = "na"
 try:
-	while func_timeout(2, check):
+	while func_timeout(10, check):
 		m = solver.model()
 		currentLargest = m[missingInt]
 		solver.add(missingInt > m.evaluate(m[missingInt]))
+	print("Model is unsat")
 except FunctionTimedOut:
 	print("The largest is " + str(currentLargest))
 
 
-# clearly print out how the pallets are assigned to each truck
-# and the weight in each truck
-for t in range(0, len(truckList)):
-	weight = 0
-	if t < coolingTruckNum:
-		print("On truck " + str(t) + " (cooling)")
-	else:
-		print("On truck " + str(t))
-	for s in range(0, len(truckList[t])):
-		filledIndex = [m[x] for x in truckList[t][s]].index(True)
-		if filledIndex >= len(palletTypes):
-			print("Slot " + str(s) + ": empty")
+if type(currentLargest) != str:
+	# clearly print out how the pallets are assigned to each truck
+	# and the weight in each truck
+	for t in range(0, len(truckList)):
+		weight = 0
+		if t < coolingTruckNum:
+			print("On truck " + str(t) + " (cooling)")
 		else:
-			print("Slot " + str(s) + ": " + palletTypes[filledIndex]["name"])
+			print("On truck " + str(t))
+		for s in range(0, len(truckList[t])):
+			filledIndex = [m[x] for x in truckList[t][s]].index(True)
+			if filledIndex >= len(palletTypes):
+				print("Slot " + str(s) + ": empty")
+			else:
+				print("Slot " + str(s) + ": " + palletTypes[filledIndex]["name"])
 
-			weight += palletTypes[filledIndex]["weight"]
+				weight += palletTypes[filledIndex]["weight"]
 
-	print("Weight: " + str(weight))
+		print("Weight: " + str(weight))

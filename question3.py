@@ -1,4 +1,4 @@
-from z3 import Solver, Bool, PbLe, Implies, Sum, And, Or, Not
+from z3 import Solver, Bool, Implies, Sum, And, Or, Not
 
 
 # parameters
@@ -21,7 +21,7 @@ personPlacement = [ [ [Bool(f"r{r}_h{h}_person{p}") for p in range(houseNum * 2)
 for r in personPlacement:
 	for h in range(len(r)):
 		# in one house only allowed number of people
-		solver.add(PbLe([(x,1) for x in r[h]], maxPerHouse))
+		solver.add(Sum(r[h]) <= maxPerHouse)
 
 		# if the house belongs to the couple they must be there
 		solver.add(Implies(Sum(r[h]) > 0, And(r[h][h * 2], r[h][(h * 2) + 1])))
